@@ -25,6 +25,7 @@ try:
 except ImportError:
   mime = None
   #https://github.com/ahupp/python-magic
+  print("WARNING: python-magic not installed, some magic won't work")
 
 try:
   from docopt import docopt
@@ -52,30 +53,26 @@ OPT_TO_KEY = {
  '--line-height': ("LINE_HEIGHT", to_int),
  '--nb-lines'        : ('LINES', to_int),
  '--no-caption'        : ("WANT_NO_CAPTION", to_bool),
-'--force-no-vfs': ("FORCE_VFS", to_bool),
- '--force-vfs'        : ("FORCE_NO_VFS", to_bool),
  '--pick-random': ("PICK_RANDOM", to_bool),
  '--put-random'        : ("PUT_RANDOM", to_bool),
- '--resize'        : ("DO_RESIZE", to_bool),
+ '--no-resize'        : ("DO_NOT_RESIZE", to_bool),
  '--sleep'        : ('SLEEP_TIME', to_int),
  '--width'        : ('WIDTH', to_int),
-'--no-switch-to-mini': ("NO_SWITCH_TO_MINI", to_bool),
  '<path>'        : ('PATH', to_path),
  '<target>'        : ('TARGET', to_path),
  '--polaroid'        : ("DO_POLAROID", to_bool),
  '--format'        : ("IMG_FORMAT_SUFFIX", to_str),
  '--crop-size'        : ("CROP_SIZE", to_int),
- '~~use-vfs'        : ("USE_VFS", to_bool),
  '--help'        : ("HELP", to_bool)
 }
 
 KEY_TO_OPT = dict([(key, (opt, ttype)) for opt, (key, ttype) in OPT_TO_KEY.items()])
 
 PARAMS = {
-"PATH" : "/home/kevin/mount/first",
+"PATH" : "/home/kevin/mount/téléphone",
 "TARGET" : "/tmp/final.png",
 #define the size of the picture
-"WIDTH" : 2000,
+"WIDTH" : 1000,
 
 #define how many lines do we want
 "LINES": 2,
@@ -84,14 +81,9 @@ PARAMS = {
 
 #minimum width of cropped image. Below that, we black it out
 #only for POLAROID
-"CROP_SIZE": 1000,
+"CROP_SIZE": 100,
 
 "IMG_FORMAT_SUFFIX": ".png",
-
-# False if PATH is a normal directory, True if it is WebAlbums-FS
-"USE_VFS": False,
-"FORCE_VFS": False,
-"FORCE_NO_VFS": False,
 
 # True if end-of-line photos are wrapped to the next line
 "DO_WRAP": False,
@@ -103,16 +95,12 @@ PARAMS = {
 # False if we want to add pictures randomly
 "PUT_RANDOM": False,
 
-"DO_RESIZE": False,
-
-### VFS options ###
-
-"NO_SWITCH_TO_MINI": False,
+"DO_NOT_RESIZE": False,
 
 ### Directory options ###
 
 # False if we pick directory images sequentially, false if we take them randomly
-"PICK_RANDOM": False, #not implemented yet
+"PICK_RANDOM": False,
 
 ## Random wall options ##
 "SLEEP_TIME": 0,
@@ -123,7 +111,7 @@ PARAMS = {
 DEFAULTS = dict([(key, value) for key, value in PARAMS.items()])
 DEFAULTS_docstr = dict([(KEY_TO_OPT[key][0], value) for key, value in PARAMS.items()])
 
-usage = """Photo Wall for WebAlbums 3.
+usage = """Photo Wall generator.
 
 Usage: 
   photowall.py <path> <target> [options]
@@ -134,24 +122,24 @@ Arguments:
 
 Options:
   --polaroid              Use polaroid-like images for the wall
-  --width <width>         Set final image width. [default: %(--width)d]
-  --nb-lines <nb>         Number on lines of the target image. [default: %(--nb-lines)d]
-  --resize                Resize images before putting in the wall. [default: %(--resize)s]
-  --line-height <height>  Set the height of a single image. [default: %(--line-height)d]
-  --do-wrap               If not POLAROID, finish images on the next line. [default: %(--do-wrap)s]
+  --pick-random           Pick images randomly in the <path> folder. [default: %(--pick-random)s]
   --help                  Display this message
 
+Size options:
+  --nb-lines <nb>         Number on lines of the target image. [default: %(--nb-lines)d]
+  --line-height <height>  Set the height of a single image. [default: %(--line-height)d]
+  --width <width>         Set final image width. [default: %(--width)d]
+  --no-resize             Resize images before putting in the wall. [default: %(--no-resize)s]
+
 Polaroid mode options:
-  --crop-size <crop>      Minimum size to allow cropping an image. [default: %(--crop-size)s]
+  --crop-size <crop>      Minimum size to allow cropping an image, if it doesn't fit [default: %(--crop-size)s]
   --no-caption            Disable caption. [default: %(--no-caption)s] 
   --put-random            Put images randomly instead of linearily. [default: %(--put-random)s]
   --sleep <time>          If --put-random, time (in seconds) to go asleep before adding a new image. [default: %(--sleep)d]
 
-Filesystem options:
-  --force-vfs             Treat <path> as a VFS filesystem. [default: %(--force-vfs)s]
-  --force-no-vfs          Treat <path> as a normal filesystem. [default: %(--force-no-vfs)s]
-  --no-switch-to-mini     If VFS, don't switch from the normal image to the miniature. [default: %(--no-switch-to-mini)s]
-  --pick-random           If not VFS, pick images randomly in the <path> folder. [default: %(--pick-random)s]
+Collage mode options:
+  --do-wrap               Finish images on the next line? [default: %(--do-wrap)s]
+
   """ % DEFAULTS_docstr
 
 
@@ -193,33 +181,6 @@ if __name__ == "__main__":
 
 ###########################################
 
-###########################################
-
-previous = None
-def get_next_file_vfs():
-  global previous
-  if previous is not None:
-    try:
-      os.unlink(previous)
-    except OSerror:
-      pass
-    
-  files = os.listdir(PARAMS["PATH"])
-  for filename in files:
-    if not "By Years" in filename:
-      previous = PARAMS["PATH"]+filename
-      if "gpx" in previous:
-        return get_next_file()
-      to_return = previous
-      try:
-        to_return = os.readlink(to_return)
-      except OSError:
-        pass
-
-      if not PARAMS["NO_SWITCH_TO_MINI"]:
-        to_return = to_return.replace("/images/", "/miniatures/") + ".png"
-      return to_return
-
 def get_file_details(filename):
   try:
     link = filename
@@ -252,7 +213,6 @@ class GetFileDir:
     self.files.sort()
     
     if randomize:
-      print("RANDOMIZE")
       random.shuffle(self.files)
   
   def get_next_file(self):
@@ -284,7 +244,10 @@ def do_polaroid (image, filename=None, background="black", suffix=None):
     suffix = PARAMS["IMG_FORMAT_SUFFIX"]
   tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
   tmp.close()
+  
+  print("Saving image into {}...".format(tmp.name))
   image.save(filename=tmp.name)
+  print("Done")
   
   if not(PARAMS["WANT_NO_CAPTION"]) and filename:
     details = get_file_details(filename)
@@ -292,8 +255,12 @@ def do_polaroid (image, filename=None, background="black", suffix=None):
   else:
     caption = ""
     
-  command = "convert -bordercolor snow -background %(bg)s -gravity center %(caption)s +polaroid %(name)s %(name)s" % {"bg" : background, "name":tmp.name, "caption":caption}
-    
+  command = ("convert "
+             "-bordercolor snow "+
+             "-background %(bg)s "+
+             "-gravity center %(caption)s "+
+             "+polaroid %(name)s %(name)s") % {"bg" : background, "name":tmp.name, "caption":caption}
+             
   ret = subprocess.call(command, shell=True)
   if ret != 0:
     raise Exception("Command failed: "+ command)
@@ -307,6 +274,8 @@ def do_polaroid (image, filename=None, background="black", suffix=None):
   return img
 
 def do_blank_image(height, width, filename, color="black"):
+  print("Create blank ({}) image {}*{} --> {}".format(color, width, height, filename))
+        
   command = "convert -size %dx%d xc:%s %s" % (width, height, color, filename)
 
   ret = subprocess.call(command, shell=True)
@@ -322,17 +291,19 @@ def do_polaroid_and_random_composite(target_filename, target, image, filename):
   tmp = tempfile.NamedTemporaryFile(delete=False, suffix=PARAMS["IMG_FORMAT_SUFFIX"])
   image.save(filename=tmp.name)
 
-  height = random.randint(0, target.height - image.height) - target.height/2
-  width = random.randint(0, target.width - image.width) - target.width/2
+  height = random.randint(0, int(target.height- image.height))
+  width = random.randint(0, int(target.width - image.width))
+  
+  geometry = "{}{}{}{}".format("+" if width >= 0 else "", width, "+" if height >= 0 else "", height)
+  print("{}".format(geometry))
 
-  geometry = ("+" if height >= 0 else "") + str(height) + ("+" if width >= 0 else "") + str(width)
+  command = "composite -geometry %s -compose Over  %s %s %s" % (geometry, tmp.name, target_filename, target_filename)
 
-  command = "composite -geometry %s  -compose Over -gravity center %s %s %s" % (geometry, tmp.name, target_filename, target_filename)
   ret = os.system(command)
   os.unlink(tmp.name)
   
   if ret != 0:
-    raise object("failed")
+    raise Exception("failed")
 
 def photowall(name):
   output_final = None
@@ -353,11 +324,11 @@ def photowall(name):
       # get a real image
       if mime is not None:
         mimetype = mime.from_file(filename)
-        if "symbolic link" in mimetype:
+        if "symbolic link" in str(mimetype):
           filename = os.readlink(filename)
           mimetype = mime.from_file(filename)
         
-        if not "image" in mimetype:
+        if not "image" in str(mimetype):
           continue
       else:
         try:
@@ -370,8 +341,11 @@ def photowall(name):
       # resize the image
       image = Image(filename=filename)
       with image.clone() as clone:
-        factor = float(PARAMS["LINE_HEIGHT"])/clone.height
+        factor = float(PARAMS["LINE_HEIGHT"]) / clone.height
+
+        print("Resize image {} of a factor {}".format(filename, factor))
         clone.resize(height=PARAMS["LINE_HEIGHT"], width=int(clone.width*factor))
+        
         #if the new image makes an overflow
         if row_width + clone.width  > PARAMS["WIDTH"]:
           #compute how many pixels will overflow
@@ -430,22 +404,22 @@ def photowall(name):
     
 def random_wall(real_target_filename):
   name = real_target_filename
-  filename = name[name.rindex("/"):]
-  name = filename[:filename.index(".")]
-  ext = filename[filename.index("."):]
-  target_filename = tempfile.gettempdir()+"/"+name+".2"+ext
+
+  filename = name.rpartition("/")[-1]
+  name, _, ext = filename.rpartition(".")
+
+  target_filename = "{}/{}.2.{}".format(tempfile.gettempdir(), name, ext)
   
   try:
     #remove any existing tmp file
     os.unlink(target_filename)
-  except:
+  except OSError:
     pass
   
-  try:
+  if os.path.exists(target_filename):
     #if source already exist, build up on it
     os.system("cp %s %s" % (target_filename, real_target_filename))
-  except:
-    pass
+
   
   print("Target file is %s" % real_target_filename )
   target = None
@@ -464,6 +438,7 @@ def random_wall(real_target_filename):
 
   if target is None:
     height = PARAMS["LINES"] * PARAMS["LINE_HEIGHT"]
+    
     do_blank_image(height, PARAMS["WIDTH"], target_filename)
     target = Image(filename=target_filename)
   
@@ -478,10 +453,12 @@ def random_wall(real_target_filename):
     
     img = Image(filename=filename)
     with img.clone() as clone:
-      if PARAMS["DO_RESIZE"]:
+      if not PARAMS["DO_NOT_RESIZE"]:
         factor = float(PARAMS["LINE_HEIGHT"])/clone.height
+        
+        print("Resize image {} of a factor {}".format(filename, factor))
         clone.resize(width=int(clone.width*factor), height=int(clone.height*factor))
-                     
+
       do_polaroid_and_random_composite(target_filename, target, clone, filename)
       updateCB.checkPause()
       if updateCB.stopRequested():
@@ -501,32 +478,16 @@ def random_wall(real_target_filename):
       
 get_next_file = None
 
-def path_is_jnetfs(path):
-  #check if PATH is VFS or not
-
-  df_output_lines = os.popen("df -Ph '%s'" % path).read().splitlines()
-  
-  return df_output_lines and "JnetFS" in df_output_lines[1]
-
 def fix_args():
   global get_next_file
   
   if PARAMS["PATH"][-1] != "/":
     PARAMS["PATH"] += "/"  
   
-  if PARAMS["FORCE_NO_VFS"]:
-    PARAMS["USE_VFS"]
-  elif PARAMS["FORCE_NO_VFS"]:
-    PARAMS["USE_VFS"]
-  else:
-    PARAMS["USE_VFS"] = path_is_jnetfs(PARAMS["PATH"]) 
-
-  if not PARAMS["USE_VFS"]:    
-    get_next_file = GetFileDir(PARAMS["PICK_RANDOM"]).get_next_file
-  else:
-    get_next_file = get_next_file_vfs
+  get_next_file = GetFileDir(PARAMS["PICK_RANDOM"]).get_next_file
 
 def do_main():
+  
   fix_args()
   
   updateCB.newExec()

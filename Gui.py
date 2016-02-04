@@ -1,3 +1,5 @@
+#! /usr/bin/python3
+
 from gi.repository import Gtk, GdkPixbuf, GObject, Gdk
 
 GObject.threads_init()
@@ -78,7 +80,6 @@ class Handler:
     
     self.init()
     
-    self.onWebAlbmFS()
     self.onPolaroid()
     self.onRandom()
     
@@ -102,8 +103,6 @@ class Handler:
     # only for POLAROID
     self.builder.get_object('txtMinCrop').set_value(DEFAULTS["CROP_SIZE"])
     
-    # False if PATH is a normal directory, True if it is WebAlbums-FS
-    self.builder.get_object('ckWebAlbumFS').set_active(DEFAULTS["USE_VFS"])
     
     # True if end-of-line photos are wrapped to the next line
     self.builder.get_object('ckWrap').set_active(DEFAULTS["DO_WRAP"])
@@ -115,12 +114,8 @@ class Handler:
     # False if we want to add pictures randomly
     self.builder.get_object('ckRandom').set_active(DEFAULTS["PUT_RANDOM"])
     
-    self.builder.get_object('ckResize').set_active(DEFAULTS["DO_RESIZE"])
-    
-    ### VFS options ###
-    
-    self.builder.get_object('ckMini').set_active(not DEFAULTS["NO_SWITCH_TO_MINI"])
-    
+    self.builder.get_object('ckResize').set_active(not DEFAULTS["DO_NOT_RESIZE"])
+        
     ### Directory options ###
     
     # False if we pick directory images sequentially, false if we take them randomly
@@ -130,10 +125,6 @@ class Handler:
     
     self.updateImage()
     
-    self.is_jnetFS = False
-    self.checkJnetFS()
-    
-    self.onWebAlbmFS()
     self.onPolaroid()
     self.onRandom()
   
@@ -146,8 +137,6 @@ class Handler:
     def selectTarget_cb(target_filename):
         if target_filename is not None:
             self.builder.get_object("btSelectTarget").set_label(target_filename)
-            
-        self.checkJnetFS()
         
     self.saver_cb = selectTarget_cb
     
@@ -165,14 +154,6 @@ class Handler:
     saver.set_visible(False)
     if callable(self.saver_cb):
         self.saver_cb(saver.get_filename())
-  
-  def checkJnetFS(self):
-    path = self.builder.get_object('btSelectTarget').get_label()
-    self.onJnetFS(photowall.path_is_jnetfs(path))
-  
-  def onJnetFS(self, is_jnet):
-    self.builder.get_object('ckWebAlbumFS').set_active(is_jnet)
-    self.is_jnetFS = is_jnet
     
   def onDeleteWindow(self, *args):
     self.doQuit()
@@ -204,28 +185,14 @@ class Handler:
     fullscreen.set_visible(False)
     self.is_fullscreen = False
     return Gtk.false
-  
-  def onWebAlbmFS(self, *args):
-    use_fs = self.builder.get_object('ckWebAlbumFS').get_active()
-    do_pol = self.builder.get_object('ckPolaroid').get_active()
-    
-    self.builder.get_object('ckCaption').set_sensitive(do_pol and use_fs)
-    self.builder.get_object('ckMini').set_sensitive(use_fs)
-    self.builder.get_object('ckPickRandom').set_sensitive(not use_fs)
-    print("use", use_fs)
-    print("is", self.is_jnetFS)
-    color = None if self.is_jnetFS == use_fs else Gdk.color_parse("red")
-    self.builder.get_object('ckWebAlbumFS').modify_bg(Gtk.StateType.NORMAL, color)
-    
     
   def onPolaroid(self, *args):
     do_pol = self.builder.get_object('ckPolaroid').get_active()
-    use_fs = self.builder.get_object('ckWebAlbumFS').get_active()
     
     self.builder.get_object('lblMinCrop').set_sensitive(do_pol)
     self.builder.get_object('txtMinCrop').set_sensitive(do_pol)
     
-    self.builder.get_object('ckCaption').set_sensitive(do_pol and use_fs)
+    self.builder.get_object('ckCaption').set_sensitive(do_pol)
     
     self.builder.get_object('ckWrap').set_sensitive(not do_pol)
     self.builder.get_object('ckRandom').set_sensitive(do_pol)
@@ -397,12 +364,7 @@ class Handler:
     PARAMS["CROP_SIZE"] = int(self.builder.get_object('txtMinCrop').get_value())
         
     PARAMS["IMG_FORMAT_SUFFIX"] = ".png"
-        
-    # False if PATH is a normal directory, True if it is WebAlbums-FS
-    PARAMS["USE_VFS"] = self.builder.get_object('ckWebAlbumFS').get_active()
-    PARAMS["FORCE_VFS"] = False
-    PARAMS["FORCE_NO_VFS"] = False
-        
+                
     # True if end-of-line photos are wrapped to the next line
     PARAMS["DO_WRAP"] = self.builder.get_object('ckWrap').get_active()
     # True if we want a black background and white frame, plus details
@@ -413,12 +375,8 @@ class Handler:
     # False if we want to add pictures randomly
     PARAMS["PUT_RANDOM"] = self.builder.get_object('ckRandom').get_active()
         
-    PARAMS["DO_RESIZE"] = self.builder.get_object('ckResize').get_active()
-        
-    ### VFS options ###
-        
-    PARAMS["NO_SWITCH_TO_MINI"] = not self.builder.get_object('ckMini').get_active()
-        
+    PARAMS["DO_NOT_RESIZE"] = not self.builder.get_object('ckResize').get_active()
+                
     ### Directory options ###
     
     # False if we pick directory images sequentially, false if we take them randomly
