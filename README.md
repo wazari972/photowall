@@ -1,11 +1,25 @@
 Photowall generator
 ===================
 
-This is a Python photowall generator, relying on ImageMagick.
+This is a GPL 3.0 Python photowall generator, relying on ImageMagick.
+It is (and will remain) in "beta testing" version : I use it and it
+fits my requirements, but there is no guarantee that it won't crash in
+any different circunstances.
+
+
+Python developers should be able to fix it and update it fairly easy,
+although the code is a bit old and could benefit from a face lifting.
+
+An example of customization for Python developers: Polaroid captions
+are computed by function `photowall.get_file_details`. Just rewrite
+this function to decide what you want to use for caption. Current code
+(in the exception handler :$) takes the filename without extension and
+replaces underscores by new lines.
 
 Usage: 
 ------
-       photowall.py <path> <target> [options]
+
+     photowall.py <path> <target> [options]
 
      Arguments:
        <path>        The path where photos are picked up from. [default: /home/kevin/mount/téléphone]

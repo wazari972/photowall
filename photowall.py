@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+#                    GNU GENERAL PUBLIC LICENSE
+#                      Version 3, 29 June 2007
+#
+# Copyright (C) 2012,2016 Kevin Pouget
+
 import os
 import tempfile
 import pipes
