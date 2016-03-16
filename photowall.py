@@ -80,7 +80,7 @@ PARAMS = {
 "WIDTH" : 1000,
 
 #define how many lines do we want
-"LINES": 2,
+"LINES": None,
 
 "LINE_HEIGHT": 200,
 
@@ -131,13 +131,13 @@ Options:
   --help                  Display this message
 
 Size options:
-  --nb-lines <nb>         Number on lines of the target image. [default: %(--nb-lines)d]
+  --nb-lines <nb>         Number on lines of the target image. [default: 0] (use all directory images)
   --line-height <height>  Set the height of a single image. [default: %(--line-height)d]
   --width <width>         Set final image width. [default: %(--width)d]
   --no-resize             Resize images before putting in the wall. [default: %(--no-resize)s]
+  --crop-size <crop>      Minimum size to allow cropping an image, if it doesn't fit [default: %(--crop-size)s]
 
 Polaroid mode options:
-  --crop-size <crop>      Minimum size to allow cropping an image, if it doesn't fit [default: %(--crop-size)s]
   --no-caption            Disable caption. [default: %(--no-caption)s] 
   --put-random            Put images randomly instead of linearily. [default: %(--put-random)s]
   --sleep <time>          If --put-random, time (in seconds) to go asleep before adding a new image. [default: %(--sleep)d]
@@ -221,12 +221,18 @@ class GetFileDir:
       random.shuffle(self.files)
   
   def get_next_file(self):
-    to_return = self.files[self.idx]
+    try:
+      to_return = self.files[self.idx]
+    except IndexError: # self.idx > len(self.files)
+      return None
     
-    self.idx += 1 
-    self.idx %= len(self.files) 
+    self.idx += 1
+
+    # if nb line explicitely set, go round
+    if PARAMS["LINES"]:
+      self.idx %= len(self.files)
     
-    return PARAMS["PATH"]+to_return
+    return PARAMS["PATH"] + to_return
   
 def get_file_details_dir(filename):
   return filename[filename.rindex("/")+1:]
@@ -314,15 +320,27 @@ def photowall(name):
   output_final = None
 
   previous_filename = None
-  #for all the rows, 
-  for row in range(PARAMS["LINES"]):    
+  #for all the rows,
+  row = -1
+  done = False
+  while not done:
+    row += 1
+    if PARAMS["LINES"] and row >= PARAMS["LINES"]: break
+    
     output_row = None
     row_width = 0
-    #concatenate until the image width is reached
     img_count = 0
-    while row_width < PARAMS["WIDTH"]:
+    
+    #concatenate until the image width is reached
+    while not done and row_width < PARAMS["WIDTH"]:
       # get a new file, or the end of the previous one, if it was split
       filename = get_next_file() if previous_filename is None else previous_filename
+      
+      if filename is None:
+        print("All photos have been consumed.")
+        done = True
+        continue
+      
       mimetype = None
       previous_filename = None
       
@@ -348,19 +366,19 @@ def photowall(name):
       with image.clone() as clone:
         factor = float(PARAMS["LINE_HEIGHT"]) / clone.height
 
-        print("Resize image {} of a factor {}".format(filename, factor))
+        print("Resize image {} of a factor {:.2f}".format(filename, factor))
         clone.resize(height=PARAMS["LINE_HEIGHT"], width=int(clone.width*factor))
         
         #if the new image makes an overflow
-        if row_width + clone.width  > PARAMS["WIDTH"]:
+        if row_width + clone.width > PARAMS["WIDTH"]:
+          print("Doesn't fit.")
           #compute how many pixels will overflow
           overflow = row_width + clone.width - PARAMS["WIDTH"]
           will_fit = clone.width - overflow
           
-          if PARAMS["DO_POLAROID"] and will_fit < PARAMS["CROP_SIZE"]:
+          if will_fit < PARAMS["CROP_SIZE"]:
             row_width = PARAMS["WIDTH"]
             previous_filename = filename
-            print("Doesn't fit")
             continue
           
           if PARAMS["DO_WRAP"]:
